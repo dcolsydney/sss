@@ -2,45 +2,43 @@ package sss
 
 import (
 	"fmt"
-	"time"
+	"testing"
 )
 
-func Normal1() {
+func BenchmarkNormal1(b *testing.B) {
 	secret := "The quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dog"
 	n := byte(30) // create 30 shares
-	k := byte(2)  // require 2 of them to combine
+	k := byte(10) // require 2 of them to combine
 
-	start := time.Now()
-	_, err := SplitParallel(n, k, []byte(secret)) // split into 30 shares
-	t := time.Now()
-	fmt.Println("Elapsed:", t.Sub(start))
-	if err != nil {
-		fmt.Println(err)
-		return
+	for i := 0; i < b.N; i++ {
+		_, err := Split(n, k, []byte(secret)) // split into 30 shares
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 	}
 }
 
-func Concur1() {
+func BenchmarkConcur1(b *testing.B) {
 	secret := "The quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy doThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dog"
 	n := byte(30) // create 30 shares
-	k := byte(2)  // require 2 of them to combine
+	k := byte(10) // require 2 of them to combine
 
-	start := time.Now()
-	_, err := Split(n, k, []byte(secret)) // split into 30 shares
-	t := time.Now()
-	fmt.Println("Elapsed:", t.Sub(start))
-	if err != nil {
-		fmt.Println(err)
-		return
+	for i := 0; i < b.N; i++ {
+		_, err := SplitParallel(n, k, []byte(secret)) // split into 30 shares
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 	}
 }
 
-func Normal2() {
-	secret := "well hello there!well hello there!well hello there!well hello there!" // our secret
-	n := byte(30)                                                                    // create 30 shares
-	k := byte(3)                                                                     // require 3 of them to combine
+func BenchmarkNormal2(b *testing.B) {
+	secret := "well hello there!well hello there!well hello there!well hello there!"
+	n := byte(20)
+	k := byte(15)
 
-	shares, err := SplitParallel(n, k, []byte(secret)) // split into 30 shares
+	shares, err := SplitParallel(n, k, []byte(secret))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -55,22 +53,22 @@ func Normal2() {
 		}
 	}
 
+	b.ResetTimer()
+
 	// combine two shares and recover the secret
-	start := time.Now()
-	recovered := string(Combine(subset))
-	t := time.Now()
-	fmt.Println("Elapsed:", t.Sub(start))
-	fmt.Println(recovered)
+	for i := 0; i < b.N; i++ {
+		Combine(subset)
+	}
 
 	// Output: well hello there!
 }
 
-func Concur2() {
-	secret := "well hello there!well hello there!well hello there!well hello there!" // our secret
-	n := byte(30)                                                                    // create 30 shares
-	k := byte(3)                                                                     // require 3 of them to combine
+func BenchmarkConcur2(b *testing.B) {
+	secret := "well hello there!well hello there!well hello there!well hello there!"
+	n := byte(20)
+	k := byte(15)
 
-	shares, err := SplitParallel(n, k, []byte(secret)) // split into 30 shares
+	shares, err := SplitParallel(n, k, []byte(secret))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -85,12 +83,11 @@ func Concur2() {
 		}
 	}
 
-	// combine two shares and recover the secret
-	start := time.Now()
-	recovered := string(CombineParallel(subset))
-	t := time.Now()
-	fmt.Println("Elapsed:", t.Sub(start))
-	fmt.Println(recovered)
+	b.ResetTimer()
 
-	// Output: well hello there!
+	// combine two shares and recover the secret
+	for i := 0; i < b.N; i++ {
+		Combine(subset)
+	}
+
 }

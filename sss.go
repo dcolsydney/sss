@@ -201,20 +201,40 @@ func CombineParallel(shares map[byte][]byte) []byte {
 		break
 	}
 
-	//	cpus := runtime.NumCPU() + 3
+	cpus := runtime.NumCPU() + 3
 
 	ret := make(chan Data)
 
 	count := 0
-	for i := 0; i < len(secret); i++ {
-		share := make([][]byte, 1)
-		share[0] = make([]byte, 0)
-		for j := 0; j < len(newShares); j++ {
-			share[0] = append(share[0], newShares[j][i])
+
+	for i := 0; i < len(secret); i += cpus {
+		var share [][]byte
+		if i+cpus >= len(secret) {
+			share = make([][]byte, len(secret)-i)
+		} else {
+			share = make([][]byte, cpus)
+		}
+		for j := 0; j < len(share); j++ {
+			share[j] = make([]byte, len(newShares))
+			for k := 0; k < len(newShares); k++ {
+				share[j][k] = newShares[k][i+j]
+			}
 		}
 		go CombineConcur(share, i, indices, ret)
 		count++
 	}
+
+	/*
+		for i := 0; i < len(secret); i++ {
+			share := make([][]byte, 1)
+			share[0] = make([]byte, 0)
+			for j := 0; j < len(newShares); j++ {
+				share[0] = append(share[0], newShares[j][i])
+			}
+			go CombineConcur(share, i, indices, ret)
+			count++
+		}
+	*/
 
 	for count > 0 {
 		count--
