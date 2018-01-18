@@ -92,12 +92,11 @@ func SplitParallel(n, k byte, secret []byte) (map[byte][]byte, error) {
 	}
 
 	shares := make(map[byte][]byte, n)
-
-	ret := make(chan Result)
-
 	for i := byte(1); i <= n; i++ {
 		shares[i] = make([]byte, len(secret))
 	}
+
+	ret := make(chan Result)
 
 	for i, b := range secret {
 		go SplitParallelLoop(k-1, b, n, i, ret)
