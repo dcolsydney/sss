@@ -4,8 +4,8 @@
 // N people, allowing the recovery of that secret if K of those people combine
 // their shares.
 //
-// It begins by encoding a secret as a number (e.g., 42), and generating N
-// random polynomial equations of degree K-1 which have an X-intercept equal to
+// It begins by encoding a secret as a number (e.g., 42), and generating a
+// random polynomial equation of degree K-1 which has an X-intercept equal to
 // the secret. Given K=3, the following equations might be generated:
 //
 //     f1(x) =  78x^2 +  19x + 42
@@ -14,12 +14,12 @@
 //     f4(x) =  91x^2 +  95x + 42
 //     etc.
 //
-// These polynomials are then evaluated for values of X > 0:
+// The polynomial is then evaluated for values 0 < X < N:
 //
 //     f1(1) =  139
-//     f2(2) =  896
-//     f3(3) = 1140
-//     f4(4) = 1783
+//     f1(2) =  896
+//     f1(3) = 1140
+//     f1(4) = 1783
 //     etc.
 //
 // These (x, y) pairs are the shares given to the parties. In order to combine
@@ -77,11 +77,84 @@ func Split(n, k byte, secret []byte) (map[byte][]byte, error) {
 	return shares, nil
 }
 
+type Result struct {
+	Shares []byte
+	Index  int
+}
+
+func SplitParallel(n, k byte, secret []byte) (map[byte][]byte, error) {
+	if k <= 1 {
+		return nil, ErrInvalidThreshold
+	}
+
+	if n < k {
+		return nil, ErrInvalidCount
+	}
+
+	shares := make(map[byte][]byte, n)
+
+	ret := make(chan Result)
+
+	for i := byte(1); i <= n; i++ {
+		shares[i] = make([]byte, len(secret))
+	}
+
+	for i, b := range secret {
+		go SplitParallelLoop(k-1, b, n, i, ret)
+	}
+
+	for range secret {
+		res := <-ret
+		for j := byte(1); j <= n; j++ {
+			shares[j][res.Index] = res.Shares[int(j)-1]
+		}
+	}
+
+	return shares, nil
+}
+
+func SplitParallelLoop(k_1 byte, b byte, n byte, i int, ret chan Result) error {
+	p, err := generate(k_1, b, rand.Reader)
+	if err != nil {
+		return err
+	}
+
+	shares := make([]byte, n)
+	for x := byte(1); x <= n; x++ {
+		shares[int(x)-1] = eval(p, x)
+	}
+
+	v := Result{Shares: shares, Index: i}
+	ret <- v
+
+	return nil
+}
+
 // Combine the given shares into the original secret.
 //
 // N.B.: There is no way to know whether the returned value is, in fact, the
 // original secret.
 func Combine(shares map[byte][]byte) []byte {
+	var secret []byte
+	for _, v := range shares {
+		secret = make([]byte, len(v))
+		break
+	}
+
+	points := make([]pair, len(shares))
+	for i := range secret {
+		p := 0
+		for k, v := range shares {
+			points[p] = pair{x: k, y: v[i]}
+			p++
+		}
+		secret[i] = interpolate(points, 0)
+	}
+
+	return secret
+}
+
+func CombineParallel(shares map[byte][]byte) []byte {
 	var secret []byte
 	for _, v := range shares {
 		secret = make([]byte, len(v))
