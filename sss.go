@@ -41,6 +41,7 @@ package sss
 import (
 	"crypto/rand"
 	"errors"
+	"runtime"
 )
 
 var (
@@ -78,8 +79,9 @@ func Split(n, k byte, secret []byte) (map[byte][]byte, error) {
 }
 
 type Result struct {
-	Shares []byte
+	Shares [][]byte
 	Index  int
+	N      int
 }
 
 func SplitParallel(n, k byte, secret []byte) (map[byte][]byte, error) {
@@ -91,42 +93,69 @@ func SplitParallel(n, k byte, secret []byte) (map[byte][]byte, error) {
 		return nil, ErrInvalidCount
 	}
 
+	cpus := runtime.NumCPU() + 4
+
+	ret := make(chan Result)
+
+	count := 0
+	for i := 0; i < len(secret); i += cpus {
+		if i+cpus >= len(secret) {
+			go SplitParallelLoop(k-1, secret[i:], n, i, len(secret)-1, ret)
+		} else {
+			go SplitParallelLoop(k-1, secret[i:i+cpus], n, i, i+cpus-1, ret)
+		}
+		count++
+	}
+
 	shares := make(map[byte][]byte, n)
 	for i := byte(1); i <= n; i++ {
 		shares[i] = make([]byte, len(secret))
 	}
 
-	ret := make(chan Result)
-
-	for i, b := range secret {
-		go SplitParallelLoop(k-1, b, n, i, ret)
-	}
-
-	for range secret {
+	for count > 0 {
+		count--
 		res := <-ret
 		for j := byte(1); j <= n; j++ {
-			shares[j][res.Index] = res.Shares[int(j)-1]
+			for i := 0; i < res.N; i++ {
+				shares[j][i+res.Index] = res.Shares[i][int(j)-1]
+			}
 		}
 	}
 
 	return shares, nil
 }
 
-func SplitParallelLoop(k_1 byte, b byte, n byte, i int, ret chan Result) error {
-	p, err := generate(k_1, b, rand.Reader)
-	if err != nil {
-		return err
+func SplitParallelLoop(k_1 byte, bytes []byte, n byte, start_i, end_i int, ret chan Result) error {
+	shares := make([][]byte, len(bytes))
+	for i := 0; i < len(bytes); i++ {
+		p, err := generate(k_1, bytes[i], rand.Reader)
+		if err != nil {
+			return err
+		}
+
+		shares[i] = make([]byte, n)
+		for x := byte(1); x <= n; x++ {
+			shares[i][int(x)-1] = eval(p, x)
+		}
 	}
 
-	shares := make([]byte, n)
-	for x := byte(1); x <= n; x++ {
-		shares[int(x)-1] = eval(p, x)
-	}
-
-	v := Result{Shares: shares, Index: i}
-	ret <- v
+	res := Result{Shares: shares, Index: start_i, N: len(bytes)}
+	//	res.Init(shares, start_i, len(bytes))
+	ret <- res
 
 	return nil
+}
+
+func (res *Result) Init(shares [][]byte, index int, n int) {
+	res.Shares = make([][]byte, n)
+	for i := 0; i < len(shares); i++ {
+		res.Shares[i] = make([]byte, len(shares[i]))
+		for j := 0; j < len(shares[i]); j++ {
+			res.Shares[i][j] = shares[i][j]
+		}
+	}
+	res.Index = index
+	res.N = n
 }
 
 // Combine the given shares into the original secret.
