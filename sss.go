@@ -41,6 +41,7 @@ package sss
 import (
 	"crypto/rand"
 	"errors"
+	//"fmt"
 	"runtime"
 )
 
@@ -93,7 +94,7 @@ func SplitParallel(n, k byte, secret []byte) (map[byte][]byte, error) {
 		return nil, ErrInvalidCount
 	}
 
-	cpus := runtime.NumCPU() + 4
+	cpus := runtime.NumCPU() + 10
 
 	ret := make(chan Result)
 
@@ -184,20 +185,61 @@ func Combine(shares map[byte][]byte) []byte {
 
 func CombineParallel(shares map[byte][]byte) []byte {
 	var secret []byte
+	secret = make([]byte, len(shares))
+	newShares := make([][]byte, len(shares))
+	indices := make([]int, len(shares))
+
+	c := 0
+	for k, v := range shares {
+		newShares[c] = v
+		indices[c] = int(k)
+		c++
+	}
+
 	for _, v := range shares {
 		secret = make([]byte, len(v))
 		break
 	}
 
-	points := make([]pair, len(shares))
+	//	cpus := runtime.NumCPU() + 3
+
+	ret := make(chan Data)
+
+	count := 0
+	for i := 0; i < len(secret); i++ {
+		share := make([][]byte, 1)
+		share[0] = make([]byte, 0)
+		for j := 0; j < len(newShares); j++ {
+			share[0] = append(share[0], newShares[j][i])
+		}
+		go CombineConcur(share, i, indices, ret)
+		count++
+	}
+
+	for count > 0 {
+		count--
+		res := <-ret
+		for i := 0; i < len(res.Secret); i++ {
+			secret[i+res.Index] = res.Secret[i]
+		}
+	}
+	return secret
+
+}
+
+type Data struct {
+	Secret []byte
+	Index  int
+}
+
+func CombineConcur(shares [][]byte, index int, indices []int, ret chan Data) {
+	secret := make([]byte, len(shares))
 	for i := range secret {
-		p := 0
-		for k, v := range shares {
-			points[p] = pair{x: k, y: v[i]}
-			p++
+		points := make([]pair, len(shares[i]))
+		for j := 0; j < len(shares[i]); j++ {
+			points[j] = pair{x: byte(indices[j]), y: shares[i][j]}
 		}
 		secret[i] = interpolate(points, 0)
 	}
-
-	return secret
+	ret <- Data{Secret: secret, Index: index}
 }

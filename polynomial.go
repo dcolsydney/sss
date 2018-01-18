@@ -17,12 +17,12 @@ func eval(p []byte, x byte) (result byte) {
 }
 
 // generates a random n-degree polynomial w/ a given x-intercept
-func generate(degree byte, x byte, rand io.Reader) ([]byte, error) {
+func generate(degree byte, x byte, ran io.Reader) ([]byte, error) {
 	result := make([]byte, degree+1)
 	result[0] = x
 
 	buf := make([]byte, degree-1)
-	if _, err := io.ReadFull(rand, buf); err != nil {
+	if _, err := io.ReadFull(ran, buf); err != nil {
 		return nil, err
 	}
 
@@ -33,7 +33,7 @@ func generate(degree byte, x byte, rand io.Reader) ([]byte, error) {
 	// the Nth term can't be zero, or else it's a (N-1) degree polynomial
 	for {
 		buf = make([]byte, 1)
-		if _, err := io.ReadFull(rand, buf); err != nil {
+		if _, err := io.ReadFull(ran, buf); err != nil {
 			return nil, err
 		}
 
