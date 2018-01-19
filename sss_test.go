@@ -34,7 +34,7 @@ func Example() {
 func Example2() {
 	secret := "well hello there!" // our secret
 	n := byte(30)                 // create 30 shares
-	k := byte(3)                  // require 3 of them to combine
+	k := byte(5)                  // require 3 of them to combine
 
 	shares, err := SplitParallel(n, k, []byte(secret)) // split into 30 shares
 	if err != nil {

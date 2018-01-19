@@ -98,12 +98,17 @@ func SplitParallel(n, k byte, secret []byte) (map[byte][]byte, error) {
 
 	ret := make(chan Result)
 
+	p, err := generatePolys(k-1, secret, rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
 	count := 0
 	for i := 0; i < len(secret); i += cpus {
 		if i+cpus >= len(secret) {
-			go SplitParallelLoop(k-1, secret[i:], n, i, len(secret)-1, ret)
+			go SplitParallelLoop(p[i:], secret[i:], n, i, len(secret)-1, ret)
 		} else {
-			go SplitParallelLoop(k-1, secret[i:i+cpus], n, i, i+cpus-1, ret)
+			go SplitParallelLoop(p[i:i+cpus], secret[i:i+cpus], n, i, i+cpus-1, ret)
 		}
 		count++
 	}
@@ -126,17 +131,13 @@ func SplitParallel(n, k byte, secret []byte) (map[byte][]byte, error) {
 	return shares, nil
 }
 
-func SplitParallelLoop(k_1 byte, bytes []byte, n byte, start_i, end_i int, ret chan Result) error {
+func SplitParallelLoop(p [][]byte, bytes []byte, n byte, start_i, end_i int, ret chan Result) error {
 	shares := make([][]byte, len(bytes))
 	for i := 0; i < len(bytes); i++ {
-		p, err := generate(k_1, bytes[i], rand.Reader)
-		if err != nil {
-			return err
-		}
 
 		shares[i] = make([]byte, n)
 		for x := byte(1); x <= n; x++ {
-			shares[i][int(x)-1] = eval(p, x)
+			shares[i][int(x)-1] = eval(p[i], x)
 		}
 	}
 
@@ -201,7 +202,7 @@ func CombineParallel(shares map[byte][]byte) []byte {
 		break
 	}
 
-	cpus := runtime.NumCPU() + 3
+	cpus := runtime.NumCPU() + 10
 
 	ret := make(chan Data)
 

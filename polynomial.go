@@ -1,6 +1,9 @@
 package sss
 
-import "io"
+import (
+	//"fmt"
+	"io"
+)
 
 // the degree of the polynomial
 func degree(p []byte) int {
@@ -42,6 +45,43 @@ func generate(degree byte, x byte, ran io.Reader) ([]byte, error) {
 			return result, nil
 		}
 	}
+}
+
+func generatePolys(degree byte, x []byte, ran io.Reader) ([][]byte, error) {
+	results := make([][]byte, len(x))
+	for i := byte(0); i < byte(len(x)); i++ {
+		results[i] = make([]byte, degree+1)
+		results[i][0] = x[i]
+	}
+	//fmt.Println(results)
+
+	buf := make([]byte, int(degree)*len(x))
+	if _, err := io.ReadFull(ran, buf); err != nil {
+		return nil, err
+	}
+
+	for i := 0; i < len(x); i++ {
+		for j := byte(1); j <= degree; j++ {
+			results[i][j] = buf[byte(i)*(degree)+j-1]
+		}
+	}
+
+	//fmt.Println(results)
+
+	for i := 0; i < len(x); i++ {
+		buf = make([]byte, 1)
+		if _, err := io.ReadFull(ran, buf); err != nil {
+			i--
+			continue
+		}
+
+		if buf[0] != 0 {
+			results[i][degree] = buf[0]
+		} else {
+			i--
+		}
+	}
+	return results, nil
 }
 
 // an input/output pair
