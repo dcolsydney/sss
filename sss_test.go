@@ -2,9 +2,10 @@ package sss
 
 import (
 	"fmt"
+	"runtime"
 )
 
-func Example() {
+func Example3() {
 	secret := "well hello there!" // our secret
 	n := byte(30)                 // create 30 shares
 	k := byte(2)                  // require 2 of them to combine
@@ -31,6 +32,33 @@ func Example() {
 	// Output: well hello there!
 }
 
+func Example() {
+	secret := "well hello there!" // our secret
+	n := byte(30)                 // create 30 shares
+	k := byte(2)                  // require 2 of them to combine
+
+	cpus := len(secret) / (runtime.NumCPU() + 10)
+
+	send := make([]chan Input, cpus)
+	ret := make(chan Result)
+	quit := make([]chan bool, cpus)
+
+	for i := 0; i < len(send); i++ {
+		go SplitParallelLoop(send[i], ret, quit[i])
+	}
+
+	_, err := SplitParallel(n, k, []byte(secret), send, ret, cpus) // split into 30 shares
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for i := 0; i < len(send); i++ {
+		quit[i] <- true
+	}
+}
+
+/*
 func Example2() {
 	secret := "well hello there!" // our secret
 	n := byte(30)                 // create 30 shares
@@ -57,3 +85,4 @@ func Example2() {
 
 	// Output: well hello there!
 }
+*/

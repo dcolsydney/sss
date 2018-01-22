@@ -41,7 +41,7 @@ package sss
 import (
 	"crypto/rand"
 	"errors"
-	//"fmt"
+	"fmt"
 	"runtime"
 )
 
@@ -85,7 +85,15 @@ type Result struct {
 	N      int
 }
 
-func SplitParallel(n, k byte, secret []byte) (map[byte][]byte, error) {
+type Input struct {
+	Polys      [][]byte
+	Secrets    []byte
+	N          byte
+	Start, End int
+	Ret        chan Result
+}
+
+func SplitParallel(n, k byte, secret []byte, send []chan Input, ret chan Result, cpus int) (map[byte][]byte, error) {
 	if k <= 1 {
 		return nil, ErrInvalidThreshold
 	}
@@ -94,21 +102,20 @@ func SplitParallel(n, k byte, secret []byte) (map[byte][]byte, error) {
 		return nil, ErrInvalidCount
 	}
 
-	cpus := runtime.NumCPU() + 10
-
-	ret := make(chan Result)
-
 	p, err := generatePolys(k-1, secret, rand.Reader)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 
 	count := 0
 	for i := 0; i < len(secret); i += cpus {
 		if i+cpus >= len(secret) {
-			go SplitParallelLoop(p[i:], secret[i:], n, i, len(secret)-1, ret)
+			send[count] <- Input{Polys: p[i:], Secrets: secret[i:], N: n, Start: i, End: len(secret) - 1, Ret: ret}
+			//		go SplitParallelLoop(p[i:], secret[i:], n, i, len(secret)-1, ret)
 		} else {
-			go SplitParallelLoop(p[i:i+cpus], secret[i:i+cpus], n, i, i+cpus-1, ret)
+			send[count] <- Input{Polys: p[i : i+cpus], Secrets: secret[i : i+cpus], N: n, Start: i, End: i + cpus - 1, Ret: ret}
+			//		go SplitParallelLoop(p[i:i+cpus], secret[i:i+cpus], n, i, i+cpus-1, ret)
 		}
 		count++
 	}
@@ -131,21 +138,27 @@ func SplitParallel(n, k byte, secret []byte) (map[byte][]byte, error) {
 	return shares, nil
 }
 
-func SplitParallelLoop(p [][]byte, bytes []byte, n byte, start_i, end_i int, ret chan Result) error {
-	shares := make([][]byte, len(bytes))
-	for i := 0; i < len(bytes); i++ {
+//func SplitParallelLoop(p [][]byte, bytes []byte, n byte, start_i, end_i int, ret chan Result) error {
+func SplitParallelLoop(send chan Input, ret chan Result, quit chan bool) {
+	for {
+		select {
+		case m := <-send:
+			shares := make([][]byte, len(m.Secrets))
+			for i := 0; i < len(m.Secrets); i++ {
 
-		shares[i] = make([]byte, n)
-		for x := byte(1); x <= n; x++ {
-			shares[i][int(x)-1] = eval(p[i], x)
+				shares[i] = make([]byte, m.N)
+				for x := byte(1); x <= m.N; x++ {
+					shares[i][int(x)-1] = eval(m.Polys[i], x)
+				}
+			}
+
+			res := Result{Shares: shares, Index: m.Start, N: len(m.Secrets)}
+			//	res.Init(shares, start_i, len(bytes))
+			ret <- res
+		case <-quit:
+			return
 		}
 	}
-
-	res := Result{Shares: shares, Index: start_i, N: len(bytes)}
-	//	res.Init(shares, start_i, len(bytes))
-	ret <- res
-
-	return nil
 }
 
 func (res *Result) Init(shares [][]byte, index int, n int) {
