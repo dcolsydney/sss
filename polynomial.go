@@ -13,11 +13,42 @@ func degree(p []byte) int {
 // evaluate the polynomial at the given point
 func eval(p []byte, x byte) (result byte) {
 	// Horner's scheme
+	// tmp := result
+	// for i := 0; i <= 1000; i++ {
+	// 	result = mul(result, x) ^ p[len(p)-1] + byte(i)
+	// }
+	// result = tmp
 	for i := 1; i <= len(p); i++ {
 		result = mul(result, x) ^ p[len(p)-i]
 	}
 	return
 }
+
+func generateRand(k byte, secret []byte, ran io.Reader) ([]byte, error) {
+	result := make([]byte, int(k)*len(secret))
+	degree := k - 1
+	if _, err := io.ReadFull(ran, result); err != nil {
+		return nil, err
+	}
+
+	start := 0
+	for _, b := range secret {
+		result[start] = b
+		nextDegree := start + int(degree)
+		for {
+			if result[nextDegree] != 0 {
+				break
+			}
+			if _, err := io.ReadFull(ran, result[nextDegree:nextDegree+1]); err != nil {
+				return nil, err
+			}
+		}
+		start += int(k)
+	}
+	return result, nil
+}
+
+
 
 // generates a random n-degree polynomial w/ a given x-intercept
 func generate(degree byte, x byte, ran io.Reader) ([]byte, error) {

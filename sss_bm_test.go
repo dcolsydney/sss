@@ -6,11 +6,12 @@ import (
 	"testing"
 )
 
-func BenchmarkNormal1(b *testing.B) {
-	secret := "The quick brown fox jumped over the lazy dog"
-	n := byte(30) // create 30 shares
-	k := byte(3)  // require 2 of them to combine
+var secret = "The quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dogThe quick brown fox jumped over the lazy dog"
+var n = byte(30) // create 30 shares
+var k = byte(3)  // require 2 of them to combine
 
+
+func BenchmarkNormal1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := Split(n, k, []byte(secret)) // split into 30 shares
 		if err != nil {
@@ -20,11 +21,53 @@ func BenchmarkNormal1(b *testing.B) {
 	}
 }
 
-func BenchmarkConcur1(b *testing.B) {
-	secret := "The quick brown fox jumped over the lazy dog"
-	n := byte(30) // create 30 shares
-	k := byte(3)  // require 2 of them to combine
+func BenchmarkNormalNew1(b *testing.B) {
+	res, _ := SplitNew(n, k, []byte(secret))
+	if string(Combine(res)) != secret {
+		panic("Bad combine")
+	}
+	b.ResetTimer()
+	
+	for i := 0; i < b.N; i++ {
+		_, err := SplitNew(n, k, []byte(secret)) // split into 30 shares
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+}
 
+func BenchmarkConcurNew1(b *testing.B) {
+	retChan := make([]chan []byte, n)
+	sendChan := make([]chan Comp, n)
+	endChan := make(chan bool, n)
+	for i := byte(0); i < n; i++ {
+		sendChan[i] = make(chan Comp)
+		retChan[i] = make(chan []byte)
+		go RunParallel(sendChan[i], retChan[i], endChan)
+	}
+	
+	
+	res, _ := SplitNewConcur(n, k, []byte(secret), sendChan, retChan)
+	if string(Combine(res)) != secret {
+		fmt.Println(string(Combine(res)), "!!!!!!!!!!", string(secret))
+		panic("Bad combine")
+	}
+	b.ResetTimer()
+	
+	for i := 0; i < b.N; i++ {
+		_, err := SplitNewConcur(n, k, []byte(secret), sendChan, retChan) // split into 30 shares
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	for i := byte(0); i < n; i++ {
+		endChan <- true
+	}
+}
+
+func BenchmarkConcur1(b *testing.B) {
 	length := len(secret)/(runtime.NumCPU()+10) + 1
 	cpus := runtime.NumCPU() + 10
 
@@ -58,10 +101,6 @@ func BenchmarkConcur1(b *testing.B) {
 }
 
 func BenchmarkNormal2(b *testing.B) {
-	secret := "well hello there!well hello there!well hello there!well hello there!"
-	n := byte(20)
-	k := byte(15)
-
 	shares, err := Split(n, k, []byte(secret))
 	if err != nil {
 		fmt.Println(err)
@@ -88,10 +127,6 @@ func BenchmarkNormal2(b *testing.B) {
 }
 
 func BenchmarkConcur2(b *testing.B) {
-	secret := "well hello there!well hello there!well hello there!well hello there!"
-	n := byte(20)
-	k := byte(15)
-
 	shares, err := Split(n, k, []byte(secret))
 	if err != nil {
 		fmt.Println(err)

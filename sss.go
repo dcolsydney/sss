@@ -79,6 +79,97 @@ func Split(n, k byte, secret []byte) (map[byte][]byte, error) {
 	return shares, nil
 }
 
+
+func SplitNew(n, k byte, secret []byte) (map[byte][]byte, error) {
+	if k <= 1 {
+		return nil, ErrInvalidThreshold
+	}
+
+	if n < k {
+		return nil, ErrInvalidCount
+	}
+
+	shares := make(map[byte][]byte, n)
+
+	p, err := generateRand(k, secret, rand.Reader)
+	if err != nil {
+		return nil, err
+	}	
+	// for i := 0; i < len(secret); i++ {
+	// 	for x := byte(1); x <= n; x++ {
+	// 		next := (i*int(k))
+	// 		shares[x] = append(shares[x], eval(p[next:next+int(k)], x))
+	// 	}
+	// }
+
+	for x := byte(1); x <= n; x++ {
+		shares[x] = Compute(len(secret), k, x, p)
+	}
+
+	return shares, nil
+}
+
+type Comp struct {
+	lenSecret int
+	k byte
+	x byte
+	p []byte
+}
+
+func RunParallel(sendChan chan Comp, retChan chan []byte, endChan chan bool) {
+	for {
+		select {
+		case m := <-sendChan:
+			retChan <- Compute(m.lenSecret, m.k, m.x, m.p)
+		case <-endChan:
+			return
+		}
+	}
+}		
+
+func SplitNewConcur(n, k byte, secret []byte, sendChan []chan Comp, resultChan []chan []byte) (map[byte][]byte, error) {
+	if k <= 1 {
+		return nil, ErrInvalidThreshold
+	}
+
+	if n < k {
+		return nil, ErrInvalidCount
+	}
+
+	shares := make(map[byte][]byte, n)
+
+	p, err := generateRand(k, secret, rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	
+	// for i := 0; i < len(secret); i++ {
+	// 	for x := byte(1); x <= n; x++ {
+	// 		next := (i*int(k))
+	// 		shares[x] = append(shares[x], eval(p[next:next+int(k)], x))
+	// 	}
+	// }
+
+	for x := byte(1); x <= n; x++ {
+		sendChan[x-1] <- Comp{lenSecret: len(secret), k: k, x: x, p: p}
+	}
+	for x := byte(1); x <= n; x++ {
+		shares[x] = <-resultChan[x-1]
+	}
+
+	return shares, nil
+}
+
+func Compute(lenSecret int, k byte, nIndex byte, p []byte) []byte {
+	share := make([]byte, lenSecret)
+	for i := 0; i < lenSecret; i++ {
+		next := (i*int(k))
+		share[i] = eval(p[next:next+int(k)], nIndex)
+	}
+	return share
+}
+
+
 type Result struct {
 	Shares [][]byte
 	Index  int
